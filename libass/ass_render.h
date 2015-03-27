@@ -301,6 +301,10 @@ typedef void (*BitmapMulFunc)(uint8_t *dst, intptr_t dst_stride,
 typedef void (*BEBlurFunc)(uint8_t *buf, intptr_t w,
                            intptr_t h, intptr_t stride,
                            uint16_t *tmp);
+typedef void (*BlendAlphaToRGBAFunc)(unsigned char *src, intptr_t src_w,
+                                     intptr_t src_h, intptr_t src_stride,
+                                     unsigned char *dst, intptr_t dst_stride,
+                                     uint32_t color);
 
 struct ass_renderer {
     ASS_Library *library;
@@ -341,6 +345,7 @@ struct ass_renderer {
     BitmapBlendFunc add_bitmaps_func;
     BitmapBlendFunc sub_bitmaps_func;
     BitmapMulFunc mul_bitmaps_func;
+    BlendAlphaToRGBAFunc blend_alpha_to_rgba_func;
 
     FreeList *free_head;
     FreeList *free_tail;

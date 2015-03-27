@@ -82,10 +82,12 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
             priv->mul_bitmaps_func = mul_bitmaps_c;
             priv->sub_bitmaps_func = ass_sub_bitmaps_x86;
         #endif
+        priv->blend_alpha_to_rgba_func = blend_alpha_to_rgba_c;
     #else
         priv->add_bitmaps_func = add_bitmaps_c;
         priv->sub_bitmaps_func = sub_bitmaps_c;
         priv->mul_bitmaps_func = mul_bitmaps_c;
+        priv->blend_alpha_to_rgba_func = blend_alpha_to_rgba_c;
     #endif
 
 #if CONFIG_RASTERIZER
@@ -230,6 +232,7 @@ static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
         img->color = color;
         img->dst_x = dst_x;
         img->dst_y = dst_y;
+        img->bitmapType = ASS_BITMAP_TYPE_ALPHA;
     }
 
     return img;
@@ -2682,6 +2685,16 @@ void ass_free_images(ASS_Image *img)
 }
 
 /**
+ * \brief deallocate single uncached image
+ * \param img pointer
+ */
+void ass_free_image(ASS_Image *img)
+{
+    ass_aligned_free(img->bitmap);
+    free(img);
+}
+
+/**
  * \brief Check cache limits and reset cache if they are exceeded
  */
 static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
@@ -3078,4 +3091,84 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
     priv->cache_cleared = 0;
 
     return priv->images_root;
+}
+
+/**
+ * \brief render an RGBA frame
+ * \param priv library handle
+ * \param track track
+ * \param now current video timestamp (ms)
+ * \param detect_change a value describing how the new images differ from the previous ones will be written here:
+ *        0 if identical, >0 if different.
+ *        Can be NULL, in that case no detection is performed.
+ */
+ASS_Image *ass_render_rgba_frame(ASS_Renderer *priv, ASS_Track *track,
+                                 long long now, int *detect_change,
+                                 int force_max_size)
+{
+    ASS_Image *list = ass_render_frame(priv, track, now, detect_change);
+
+    unsigned min_x = INT_MAX, min_y = INT_MAX;
+    unsigned max_x = 0, max_y = 0;
+    unsigned char *bitmap = NULL;
+    ASS_Image *out = NULL;
+    if (force_max_size) {
+        min_x = 0; min_y = 0;
+        max_x = priv->width;
+        max_y = priv->height;
+    } else {
+        for (ASS_Image *current = list; current; current = current->next) {
+            if (!current->w || !current->h)
+                continue;
+            min_x = FFMIN(current->dst_x, min_x);
+            min_y = FFMIN(current->dst_y, min_y);
+            max_x = FFMAX(current->dst_x + current->w, max_x);
+            max_x = FFMAX(current->dst_y + current->h, max_y);
+        }
+
+        if (max_x <= min_x || max_y <= min_y)
+            goto fail;
+    }
+
+    unsigned width = max_x - min_x;
+    unsigned height = max_y - min_y;
+    unsigned stride = ass_align(32, width * 4);
+    bitmap = ass_aligned_alloc(32, height * stride);
+    if (!bitmap)
+        goto fail;
+
+    memset(bitmap, 0, stride * height);
+
+    out = malloc(sizeof(ASS_Image));
+    if (!out)
+        goto fail;
+
+    out->w = width;
+    out->h = height;
+    out->stride = stride;
+    out->bitmap = bitmap;
+    out->color = 0x0; // N/A
+    out->dst_x = min_x;
+    out->dst_y = min_y;
+    out->bitmapType = ASS_BITMAP_TYPE_RGBA;
+
+    for (ASS_Image *current = list; current; current = current->next) {
+        if (!current->w || !current->h)
+            continue;
+
+        unsigned char *dst = bitmap + (current->dst_y - min_y) * stride +
+                             (current->dst_x - min_x) * 4;
+        priv->blend_alpha_to_rgba_func(current->bitmap, current->w, current->h,
+                                       current->stride, dst, stride,
+                                       current->color);
+    }
+
+    return out;
+
+    fail:
+    if (bitmap)
+        free(bitmap);
+    if (out)
+        free(out);
+    return NULL;
 }

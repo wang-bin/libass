@@ -301,5 +301,4 @@ cglobal mul_bitmaps, 8,12
     cmp r2, r7
     jl .height_loop
     RET
-
 %endif

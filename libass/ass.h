@@ -55,6 +55,11 @@ typedef struct ass_image {
         IMAGE_TYPE_SHADOW
     } type;
 
+    enum {
+        ASS_BITMAP_TYPE_ALPHA,
+        ASS_BITMAP_TYPE_RGBA
+    } bitmapType;
+
 } ASS_Image;
 
 /*
@@ -456,6 +461,9 @@ void ass_set_cache_limits(ASS_Renderer *priv, int glyph_max,
 ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
                             long long now, int *detect_change);
 
+ASS_Image *ass_render_rgba_frame(ASS_Renderer *priv, ASS_Track *track,
+                                 long long now, int *detect_change,
+                                 int force_max_size);
 
 /*
  * The following functions operate on track objects and do not need
@@ -504,6 +512,8 @@ void ass_free_style(ASS_Track *track, int sid);
  * Deallocates event data. Does not modify track->n_events.
  */
 void ass_free_event(ASS_Track *track, int eid);
+
+void ass_free_image(ASS_Image *img);
 
 /**
  * \brief Parse a chunk of subtitle stream data.

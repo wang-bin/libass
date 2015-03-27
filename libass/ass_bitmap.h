@@ -87,6 +87,10 @@ void mul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
                    uint8_t *src1, intptr_t src1_stride,
                    uint8_t *src2, intptr_t src2_stride,
                    intptr_t w, intptr_t h);
+void blend_alpha_to_rgba_c(unsigned char *src, intptr_t src_w,
+                           intptr_t src_h, intptr_t src_stride,
+                           unsigned char *dst, intptr_t dst_stride,
+                           uint32_t color);
 void shift_bitmap(Bitmap *bm, int shift_x, int shift_y);
 void fix_outline(Bitmap *bm_g, Bitmap *bm_o);
 Bitmap *copy_bitmap(const Bitmap *src);
