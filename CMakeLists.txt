@@ -13,6 +13,8 @@ SET(VERSION_MICRO 2)
 set(PROJECT_VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_MICRO})
 set(SO_VERSION 5)
 
+SET(EXTRA_LIBS "")
+
 OPTION(CHECK_ASM "asm" ON)
 OPTION(CHECK_CORETEXT "coretext" ON)
 OPTION(CHECK_FONTCONFIG "fc" ON)
@@ -66,7 +68,9 @@ ENDFOREACH()
 file(WRITE "${PROJECT_BINARY_DIR}/config.h" "${CONF}")
 
 AUX_SOURCE_DIRECTORY(libass SRC_LIST)
-IF(NOT CONFIG_CORETEXT)
+IF(CONFIG_CORETEXT)
+  SET(EXTRA_LIBS "-framework CoreText -framework CoreFoundation -framework CoreGraphics")
+ELSE()
   LIST(REMOVE_ITEM SRC_LIST "libass/ass_coretext.c")
 ENDIF()
 IF(NOT CONFIG_FONTCONFIG)
@@ -99,9 +103,9 @@ ENDIF()
 
 #find_package(fribidi)
 find_library(FRIBIDI_LIB libfribidi HINTS "${CMAKE_INSTALL_PREFIX}/lib") #msvc static lib
-IF(FRIBIDI_LIB-NOTFOUND)
+IF(NOT FRIBIDI_LIB)
   find_library(FRIBIDI_LIB fribidi HINTS "${CMAKE_INSTALL_PREFIX}/lib")
-  IF(FRIBIDI_LIB-NOTFOUND)
+  IF(NOT FRIBIDI_LIB)
     MESSAGE(FATAL_ERROR "fribidi is required")
   ENDIF()
 ENDIF()
@@ -138,14 +142,15 @@ IF(WIN32)
     SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -Wl,-Bstatic") # or LINK_SEARCH_START_STATIC property？
   ENDIF()
 ENDIF()
-CHECK_C_COMPILER_FLAG(-std=c99 HAVE_STD_C99)
-IF(HAVE_STD_C99)
+CHECK_C_COMPILER_FLAG(-std=gnu99 HAVE_STD_GNU99)
+IF(HAVE_STD_GNU99)
 # gcc4.9: error: 'for' loop initial declarations are only allowed in C99 or C11 mode
-  SET(CMAKE_C_FLAGS "-std=c99 ${CMAKE_C_FLAGS}")
+# clang with c99 may not support variable length array that used in coretext code. gnu99 is required
+  SET(CMAKE_C_FLAGS "-std=gnu99 ${CMAKE_C_FLAGS}")
 ENDIF()
 
 LINK_DIRECTORIES("${CMAKE_INSTALL_PREFIX}/lib")
-TARGET_LINK_LIBRARIES(ass "${FRIBIDI_LIB}" "${FREETYPE_LIBRARIES}")
+TARGET_LINK_LIBRARIES(ass "${FRIBIDI_LIB}" "${FREETYPE_LIBRARIES}" "${EXTRA_LIBS}")
 
 file(GLOB HEADERS "libass/ass.h" "libass/ass_types.h")
 INSTALL(FILES ${HEADERS} DESTINATION include/ass)
