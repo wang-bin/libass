@@ -22,7 +22,6 @@
 
 #include <initguid.h>
 #include <ole2.h>
-#include <shobjidl.h>
 
 #include "dwrite_c.h"
 
