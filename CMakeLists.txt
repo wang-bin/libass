@@ -6,12 +6,29 @@ message(STATUS "TARGET OS: ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_VERSION} ${CMAKE_
 INCLUDE(CheckCCompilerFlag)
 INCLUDE(CheckIncludeFile)
 INCLUDE(CheckTypeSize)
+LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+
 
 SET(VERSION_MAJOR 0)
 SET(VERSION_MINOR 13)
 SET(VERSION_MICRO 2)
 set(PROJECT_VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_MICRO})
 set(SO_VERSION 5)
+
+# System architecture detection
+string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" SYSPROC)
+set(X86_ALIASES x86 i386 i686 x86_64 amd64)
+list(FIND X86_ALIASES "${SYSPROC}" X86MATCH)
+if("${SYSPROC}" STREQUAL "" OR X86MATCH GREATER "-1")
+    set(X86 1)
+    if("${CMAKE_SIZEOF_VOID_P}" MATCHES 8)
+        set(X64 1)
+        add_definitions(-DX86_64=1)
+        message(STATUS "Detected x86_64 target processor")
+    else()
+        message(STATUS "Detected x86 target processor")
+    endif()
+endif()
 
 SET(EXTRA_LIBS "")
 
@@ -74,9 +91,41 @@ IF(NOT CONFIG_DIRECTWRITE)
   LIST(REMOVE_ITEM SRC_LIST "libass/ass_directwrite.c")
 ENDIF()
 
+IF(NOT NO_ASM)
+message(STATUS "try asm")
+  IF(X86)
+  enable_language(ASM_YASM)
+  message(STATUS "x86 x64")
+    find_package(Yasm)
+    IF(YASM_FOUND)
+      SET(CONFIG_ASM 1)
+      message(STATUS "Found Yasm ${YASM_VERSION_STRING} to build assembly primitives")
+      SET(ASM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/libass/x86/blend_bitmaps.asm 
+                  ${CMAKE_CURRENT_SOURCE_DIR}/libass/x86/blur.asm
+                  ${CMAKE_CURRENT_SOURCE_DIR}/libass/x86/cpuid.asm
+                  ${CMAKE_CURRENT_SOURCE_DIR}/libass/x86/utils.asm)
+      IF(X64)
+        LIST(APPEND ASM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/libass/x86/be_blur.asm)
+      ENDIF()
+      IF(CONFIG_RASTERIZER)
+        LIST(APPEND ASM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/libass/x86/rasterizer.asm)
+      ENDIF()
+      foreach(ASM ${ASM_SRC})
+        list(APPEND ASM_OBJS ${ASM}.o)
+        add_custom_command(
+            OUTPUT ${ASM}.o
+            COMMAND ${YASM_EXECUTABLE} ARGS ${YASM_FLAGS} ${ASM} -o ${ASM}.o
+            DEPENDS ${ASM})
+      endforeach()
+    ELSE()
+      message(STATUS "No yasm found")
+    ENDIF()
+  ENDIF()
+ENDIF()
+
 FILE(READ libass/libass.sym DEF_CONTENT)
 FILE(WRITE "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.def" "EXPORTS\n${DEF_CONTENT}")
-ADD_LIBRARY(ass SHARED ${SRC_LIST} ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.def)
+ADD_LIBRARY(ass SHARED ${SRC_LIST} ${ASM_OBJS} ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.def)
 SET_TARGET_PROPERTIES(ass PROPERTIES
   VERSION ${PROJECT_VERSION}
   SOVERSION ${SO_VERSION}
@@ -182,6 +231,7 @@ INSTALL(TARGETS ass EXPORT ${PROJECT_NAME}
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib)
 INSTALL(EXPORT ${PROJECT_NAME} DESTINATION lib/cmake)
+
 
 SET(prefix ${CMAKE_INSTALL_PREFIX})
 SET(exec_prefix "\${prefix}")
