@@ -232,6 +232,11 @@ INSTALL(TARGETS ass EXPORT ${PROJECT_NAME}
   ARCHIVE DESTINATION lib)
 INSTALL(EXPORT ${PROJECT_NAME} DESTINATION lib/cmake)
 
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/cmake/cmake_uninstall.cmake"
+               IMMEDIATE @ONLY)
+add_custom_target(uninstall
+                  "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake/cmake_uninstall.cmake")
 
 SET(prefix ${CMAKE_INSTALL_PREFIX})
 SET(exec_prefix "\${prefix}")
