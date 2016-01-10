@@ -101,22 +101,21 @@ IF(NOT NO_ASM)
     IF(YASM_FOUND)
       SET(CONFIG_ASM 1)
       message(STATUS "Found Yasm ${YASM_VERSION_STRING} to build assembly primitives")
-      SET(ASM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/libass/x86/blend_bitmaps.asm 
-                  ${CMAKE_CURRENT_SOURCE_DIR}/libass/x86/blur.asm
-                  ${CMAKE_CURRENT_SOURCE_DIR}/libass/x86/cpuid.asm
-                  ${CMAKE_CURRENT_SOURCE_DIR}/libass/x86/utils.asm)
+      SET(ASM_NAMES blend_bitmaps.asm blur.asm cpuid.asm utils.asm)
       IF(X64)
-        LIST(APPEND ASM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/libass/x86/be_blur.asm)
+        LIST(APPEND ASM_NAMES be_blur.asm)
       ENDIF()
       IF(CONFIG_RASTERIZER)
-        LIST(APPEND ASM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/libass/x86/rasterizer.asm)
+        LIST(APPEND ASM_NAMES rasterizer.asm)
       ENDIF()
-      foreach(ASM ${ASM_SRC})
+      foreach(ASM ${ASM_NAMES})
+        SET(ASM_SRC "${CMAKE_CURRENT_SOURCE_DIR}/libass/x86/${ASM}")
+        list(APPEND ASM_SRCS ${ASM_SRC})
         list(APPEND ASM_OBJS ${ASM}.o)
         add_custom_command(
             OUTPUT ${ASM}.o
-            COMMAND ${YASM_EXECUTABLE} ARGS ${YASM_FLAGS} ${ASM} -o ${ASM}.o
-            DEPENDS ${ASM})
+            COMMAND ${YASM_EXECUTABLE} ARGS ${YASM_FLAGS} ${ASM_SRC} -o ${ASM}.o
+            DEPENDS ${ASM_SRC})
       endforeach()
     ELSE()
       message(STATUS "No yasm found")
