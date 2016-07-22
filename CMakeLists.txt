@@ -140,6 +140,14 @@ INCLUDE_DIRECTORIES(
   ${CMAKE_INSTALL_PREFIX}/include
   ${CMAKE_INSTALL_PREFIX}/include/fribidi
 )
+CHECK_INCLUDE_FILE(stdint.h HAVE_STDINT_H)
+CHECK_INCLUDE_FILE(inttypes.h HAVE_INTTYPES_H)
+IF(HAVE_STDINT_H)
+    #  ADD_DEFINITIONS(-DHAVE_STDINT_H=1) #redefine in freetype
+ENDIF()
+IF(HAVE_INTTYPES_H)
+  ADD_DEFINITIONS(-DHAVE_INTTYPES_H=1)
+ENDIF()
 CHECK_INCLUDE_FILE(dirent.h HAVE_DIRENT_H)
 IF(NOT HAVE_DIRENT_H)
   INCLUDE_DIRECTORIES(compat)
@@ -163,7 +171,7 @@ LIST(APPEND EXTRA_LIBS "${FRIBIDI_LIB}")
 message(STATUS "fribidi: ${FRIBIDI_LIB}")
 
 find_package(freetype REQUIRED)
-IF(FREETYPE_FOUND)
+IF(NOT FREETYPE_FOUND)
   message(STATUS "freetype: ${FREETYPE_LIBRARIES}")
   INCLUDE_DIRECTORIES(${FREETYPE_INCLUDE_DIRS})
 ELSE()
@@ -180,6 +188,7 @@ IF(MSVC)
   IF(DEF_SNPRINTF)
     ADD_DEFINITIONS(-Dsnprintf=_snprintf) #vc link error. vs2015 redefinition error
   ENDIF()
+
   #ADD_DEFINITIONS(
     #-Dinline=_inline # defined in ass_compat.h
     #-D_USE_MATH_DEFINES # M_PI. defined in ass_compat.h
@@ -214,6 +223,7 @@ message(STATUS "winrt")
   SET(CONF "${CONF}\n#define LoadLibraryW(X) LoadPackagedLibrary(X, 0)")
 ENDIF()
 IF(APPLE)
+  LIST(APPEND EXTRA_LIBS "-lbz2")
   SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -compatibility_version 8 -current_version 8.1")
 #TODO: iOS
   SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mmacosx-version-min=10.6")
