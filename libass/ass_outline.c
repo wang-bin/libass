@@ -410,7 +410,7 @@ static bool process_arc(StrokerState *str, OutlinePoint pt,
 static bool draw_arc(StrokerState *str, OutlinePoint pt,
                      Vector normal0, Vector normal1, double c, int dir)
 {
-    const int max_subdiv = 15;
+    enum { max_subdiv = 15};
     double mul[max_subdiv + 1];
 
     Vector center;
@@ -446,7 +446,7 @@ static bool draw_arc(StrokerState *str, OutlinePoint pt,
  */
 static bool draw_circle(StrokerState *str, OutlinePoint pt, int dir)
 {
-    const int max_subdiv = 15;
+    enum { max_subdiv = 15 };
     double mul[max_subdiv + 1], c = 0;
 
     int pos = max_subdiv;
