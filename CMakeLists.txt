@@ -1,3 +1,14 @@
+# Steps
+# 1. build freetype2:
+#    cmake -GNinja -DCMAKE_INSTALL_PREFIX=InsDir -DCMAKE_BUILD_TYPE=RelWithDebInfo -DWITH_ZLIB=OFF -DWITH_BZip2=OFF -DWITH_PNG=OFF -DWITH_HarfBuzz=OFF srcdir
+#    cmake --build $PWD -- install
+# 2. build fribidi: https://github.com/wang-bin/fribidi
+#    cmake -GNinja -DCMAKE_INSTALL_PREFIX=InsDir -DCMAKE_BUILD_TYPE=RelWithDebInfo srcdir
+#    cmake --build $PWD -- install
+# 3. build libass
+#    cmake -GNinja -DCMAKE_INSTALL_PREFIX=InsDir -DCMAKE_BUILD_TYPE=RelWithDebInfo srcdir
+#    cmake --build $PWD -- install
+
 cmake_minimum_required(VERSION 2.8)
 if(POLICY CMP0042)
     cmake_policy(SET CMP0042 NEW) # MACOSX_RPATH
@@ -5,7 +16,10 @@ endif()
 
 PROJECT(libass)
 message(STATUS "TARGET OS: ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_VERSION} ${CMAKE_SYSTEM_PROCESSOR}")
-
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tools.cmake)
+  set(TOOLS_CMAKE ON)
+  include(tools.cmake)
+endif()
 INCLUDE(CheckCCompilerFlag)
 INCLUDE(CheckIncludeFile)
 INCLUDE(CheckTypeSize)
@@ -21,7 +35,7 @@ set(SO_VERSION 5) #FIXME: home brew use 9.0.0
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-list(APPEND CMAKE_FIND_ROOT_PATH ${CMAKE_INSTALL_PREFIX})
+#list(APPEND CMAKE_FIND_ROOT_PATH ${CMAKE_INSTALL_PREFIX}) # affect yasm probe
 
 # System architecture detection
 string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" SYSPROC)
@@ -168,14 +182,15 @@ IF(EXISTS ${FRIBIDI_CMAKE})
 ENDIF()
 LIST(APPEND EXTRA_LIBS "${FRIBIDI_LIB}")
 
-find_package(freetype)
-IF(FREETYPE_FOUND)
+FIND_LIBRARY(FREETYPE_LIBRARIES freetype HINTS "${CMAKE_INSTALL_PREFIX}/lib")
+message("FREETYPE_LIBRARIES from CMAKE_INSTALL_PREFIX:${FREETYPE_LIBRARIES}")
+if(FREETYPE_LIBRARIES)
+  INCLUDE_DIRECTORIES(${CMAKE_INSTALL_PREFIX}/include/freetype2)
+else()
+  find_package(freetype)
   message(STATUS "freetype: ${FREETYPE_LIBRARIES}")
   INCLUDE_DIRECTORIES(${FREETYPE_INCLUDE_DIRS})
-ELSE()
-  FIND_LIBRARY(FREETYPE_LIBRARIES freetype HINTS "${CMAKE_INSTALL_PREFIX}/lib")
-  INCLUDE_DIRECTORIES(${CMAKE_INSTALL_PREFIX}/include/freetype2)
-ENDIF()
+endif()
 LIST(APPEND EXTRA_LIBS "${FREETYPE_LIBRARIES}")
 
 IF(MSVC)
@@ -255,11 +270,13 @@ INSTALL(TARGETS ass EXPORT ${PROJECT_NAME}
   ARCHIVE DESTINATION lib)
 INSTALL(EXPORT ${PROJECT_NAME} DESTINATION lib/cmake)
 
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/cmake/cmake_uninstall.cmake"
-               IMMEDIATE @ONLY)
-add_custom_target(uninstall
+if(NOT TOOLS_CMAKE)
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
+                "${CMAKE_CURRENT_BINARY_DIR}/cmake/cmake_uninstall.cmake"
+                IMMEDIATE @ONLY)
+  add_custom_target(uninstall
                   "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake/cmake_uninstall.cmake")
+endif()
 
 SET(prefix ${CMAKE_INSTALL_PREFIX})
 SET(exec_prefix "\${prefix}")
